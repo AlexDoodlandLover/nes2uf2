@@ -1,0 +1,74 @@
+<!DOCTYPE html><html>
+<head>
+  <meta charset="UTF-8">
+  <title>NES → UF2 Generator</title>
+  <style>
+    body { font-family: sans-serif; background:#111; color:#eee; padding:20px; }
+    #box { border:2px dashed #666; padding:40px; text-align:center; margin-top:20px; cursor:pointer; }
+    button { padding:10px 20px; margin-top:20px; font-size:16px; }
+    ul { list-style:none; padding:0; }
+    li { margin:5px 0; }
+    input[type=checkbox] { margin-right:10px; }
+  </style>
+</head>
+<body>
+<h1>NES → UF2 Generator</h1>
+<p>Drop one or more NES ROMs below and select which to embed.</p><div id="box">Drop ROM(s) Here</div>
+<ul id="romList"></ul>
+<button id="generateBtn" disabled>Generate arcade.uf2</button><script>
+const box = document.getElementById('box');
+const romList = document.getElementById('romList');
+const generateBtn = document.getElementById('generateBtn');
+let roms = [];
+
+function updateList(){
+  romList.innerHTML = '';
+  roms.forEach((r,i)=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<input type='checkbox' checked data-index='${i}'> ${r.name} (${r.data.length} bytes)`;
+    romList.appendChild(li);
+  });
+  generateBtn.disabled = roms.length === 0;
+}
+
+box.addEventListener('dragover', e=>{ e.preventDefault(); box.style.borderColor="#0f0"; });
+box.addEventListener('dragleave', ()=> box.style.borderColor="#666");
+box.addEventListener('drop', async e=>{
+  e.preventDefault();
+  box.style.borderColor="#666";
+  for(const file of e.dataTransfer.files){
+    if(!file.name.endsWith('.nes')) continue;
+    const data = new Uint8Array(await file.arrayBuffer());
+    roms.push({name:file.name, data});
+  }
+  updateList();
+});
+
+function buildUF2(selectedRoms){
+  // Minimal UF2 stub for embedding ROMs
+  // This is a placeholder structure; a real F4-compatible UF2 will need proper firmware stub
+  let romBytes = [];
+  selectedRoms.forEach(r=> romBytes.push(...r.data));
+  let uf2 = new Uint8Array(256 + romBytes.length);
+  uf2.set([0x55,0x46,0x32,0x0A],0); // UF2 magic placeholder
+  uf2.set(romBytes, 256);
+  return uf2;
+}
+
+generateBtn.onclick = () => {
+  const checkboxes = romList.querySelectorAll('input[type=checkbox]');
+  const selectedRoms = [];
+  checkboxes.forEach(cb => { if(cb.checked) selectedRoms.push(roms[cb.dataset.index]); });
+  if(selectedRoms.length === 0) return alert('Select at least one ROM');
+  const uf2 = buildUF2(selectedRoms);
+
+  const blob = new Blob([uf2], {type:'application/octet-stream'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'arcade.uf2';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+</script></body>
+</html>
